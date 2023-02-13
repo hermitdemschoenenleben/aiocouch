@@ -167,7 +167,11 @@ def raises(
                 return await func(endpoint, *args, **kwargs)
             except aiohttp.ClientResponseError as exception:
                 if status == exception.status:
-                    raise_for_endpoint(endpoint, message, exception, exception_type)
+                    try:
+                        err_message = exception.message
+                    except AttributeError:
+                        err_message = message
+                    raise_for_endpoint(endpoint, err_message, exception, exception_type)
                 raise exception
 
         return cast(FuncT, wrapper)

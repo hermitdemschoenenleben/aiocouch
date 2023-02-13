@@ -141,10 +141,29 @@ class RemoteServer:
         async with self._http_session.request(
             method, url=f"{self._server}{path}", **kwargs
         ) as resp:
-            resp.raise_for_status()
+            if not resp.ok:
+                # check whether we can receive a detailed error message from
+                # response json
+                try:
+                    resp_json = await resp.json()
+                except:
+                    # decoding error message from json failed. Just raise generic
+                    # exception from status code
+                    resp.raise_for_status()
+
+                raise aiohttp.ClientResponseError(
+                    resp.request_info,
+                    resp.history,
+                    status=resp.status,
+                    message=resp_json["reason"],
+                    headers=resp.headers,
+                )
+
             return (
                 cast(JsonDict, resp.headers),
-                await resp.json() if return_json else await resp.read(),
+                await resp.json(content_type=None)
+                if return_json
+                else await resp.read(),
             )
 
     async def _streamed_request(
