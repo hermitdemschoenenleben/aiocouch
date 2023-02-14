@@ -44,7 +44,7 @@ from .bulk import BulkCreateOperation, BulkUpdateOperation
 from .design_document import DesignDocument
 from .document import Document, SecurityDocument
 from .event import BaseChangeEvent, ChangedEvent, DeletedEvent
-from .exception import ConflictError, NotFoundError
+from .exception import ConflictError, NotFoundError, BadRequestError
 from .remote import RemoteDatabase
 from .request import FindRequest
 from .typing import JsonDict
@@ -178,6 +178,25 @@ class Database(RemoteDatabase):
 
         """
         return AllDocsView(self)
+
+    async def bulk_docs(self, docs: List[JsonDict], **data: Any) -> JsonDict:
+        """Calls bulk docs endpoint and mimics the behavior of python-couchdb's
+        `update` method: https://github.com/djc/couchdb-python/blob/master/couchdb/client.py#L896"""
+        response_data = await super()._bulk_docs(docs, **data)
+
+        results = []
+        for idx, result in enumerate(response_data):
+            if "error" in result:
+                if result["error"] == "conflict":
+                    exc_type = ConflictError
+                else:
+                    # something we didn't expect happened
+                    exc_type = BadRequestError
+                results.append((False, result["id"], exc_type(result["reason"])))
+            else:
+                results.append((True, result["id"], result["rev"]))
+
+        return results
 
     def view(self, design_doc: str, view: str) -> View:
         return View(self, design_doc, view)

@@ -42,7 +42,6 @@ JsonDict = Dict[str, Any]
 @dataclass(frozen=True)
 class ViewResponse:
     _database: "database.Database"
-    offset: int
     rows: List[JsonDict]
     total_rows: int
     update_seq: Any = None
@@ -154,6 +153,31 @@ class View(RemoteView):
         )
 
         for doc in response.docs(create=create, include_ddocs=include_ddocs):
+            yield doc
+
+    async def rows(
+        self,
+        ids: Optional[List[str]] = None,
+        create: bool = False,
+        prefix: Optional[str] = None,
+        include_ddocs: bool = False,
+        **params: Any,
+    ) -> AsyncGenerator[Any, None]:
+        params["include_docs"] = True
+        if prefix is not None:
+            if ids is not None or create:
+                raise ValueError(
+                    "prefix cannot be used together with ids or create parameter"
+                )
+
+            params["startkey"] = f'"{prefix}"'
+            params["endkey"] = f'"{prefix}{self.prefix_sentinel}"'
+
+        response = await (
+            self.get(**params) if ids is None else self.post(ids, **params)
+        )
+
+        for doc in response.rows:
             yield doc
 
 
