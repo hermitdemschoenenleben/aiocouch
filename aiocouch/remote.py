@@ -75,7 +75,9 @@ class RemoteServer:
     ):
         self._server = server
         auth = aiohttp.BasicAuth(user, password, "utf-8") if user and password else None
-        headers = {"Cookie": "AuthSession=" + cookie} if cookie else None
+        headers = {"Cookie": "AuthSession=" + cookie} if cookie else {}
+        # required for open_revs=all on couchbase sync gateway
+        headers["Accept"] = "application/json"
         self._http_session = aiohttp.ClientSession(headers=headers, auth=auth, **kwargs)
         # self._databases = {}
 

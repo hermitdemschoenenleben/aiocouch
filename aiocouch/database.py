@@ -198,6 +198,24 @@ class Database(RemoteDatabase):
 
         return results
 
+    async def revisions(self, doc_id: str) -> list[str]:
+        """Returns a list of revision ids for a specific document id.
+
+        Corresponding implementation of python-couchdb: https://github.com/djc/couchdb-python/blob/master/couchdb/client.py#L667
+        """
+        d = Document(self, doc_id)
+        revs_result = await d._get(revs=True)
+        startrev = revs_result["_revisions"]["start"]
+        return [
+            f"{startrev - index}-{rev}"
+            for index, rev in enumerate(revs_result["_revisions"]["ids"])
+        ]
+
+    async def open_revs(self, doc_id: str):
+        d = Document(self, doc_id)
+        open_revs_result = await d._get(open_revs="all")
+        return [row["ok"]["_rev"] for row in open_revs_result]
+
     def view(self, design_doc: str, view: str) -> View:
         return View(self, design_doc, view)
 
